@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Lightning Bolt Bug Zapper",
+  "version": "1.0.0",
+  "description": "Quickly capture error messages and code schemas from Bolt.new, then leverage powerful LLMs to generate fixes.",
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://bolt.new/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://bolt.new/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "options_page": "options.html"
+}
