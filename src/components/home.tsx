@@ -1,20 +1,26 @@
 import React, { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Zap, Settings, Info } from "lucide-react";
+} from "./ui/card";
+import { Button } from "./ui/button";
+import { Separator } from "./ui/separator";
+import { Zap, Settings, Info, CreditCard } from "lucide-react";
 import ExtensionPopup from "./ExtensionPopup";
 import SelectionOverlay from "./SelectionOverlay";
 import ApiKeySetup from "./ApiKeySetup";
+import Payment from "./Payment";
+import UserMenu from "./UserMenu";
+import { useAuth } from "../lib/authContext";
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
+  const { user, isSubscribed } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("extension");
   const [selectionOverlayActive, setSelectionOverlayActive] = useState(false);
   const [selectionType, setSelectionType] = useState<"error" | "code">("error");
@@ -36,17 +42,40 @@ const Home = () => {
     setSelectionOverlayActive(false);
   };
 
+  // Navigate to subscription page
+  const handleOpenSubscription = () => {
+    navigate("/payment");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 p-8 flex flex-col items-center">
-      <header className="w-full max-w-5xl mb-8 text-center">
-        <h1 className="text-3xl font-bold flex items-center justify-center gap-2 mb-2">
-          <Zap className="h-8 w-8 text-yellow-500" />
-          Lightning Bolt Bug Zapper
-        </h1>
-        <p className="text-gray-600 max-w-2xl mx-auto">
-          Quickly capture error messages and code schemas from Bolt.new, then
-          leverage powerful LLMs to generate fixes with minimal clicks.
-        </p>
+    <div className="min-h-screen bg-background p-8 flex flex-col items-center">
+      <header className="w-full max-w-5xl mb-8 flex justify-between items-center">
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold flex items-center gap-2 mb-2">
+            <img src="/icons/icon48.png" alt="Logo" className="h-8 w-8" />
+            Lightning Bolt Bug Zapper
+          </h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Quickly capture error messages and code schemas from Bolt.new, then
+            leverage powerful LLMs to generate fixes with minimal clicks.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          {!isSubscribed && (
+            <Button
+              onClick={handleOpenSubscription}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <CreditCard className="h-4 w-4" />
+              Upgrade to Pro
+            </Button>
+          )}
+          <UserMenu
+            onOpenSettings={() => setActiveTab("setup")}
+            onOpenSubscription={handleOpenSubscription}
+          />
+        </div>
       </header>
 
       <main className="w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start">
@@ -59,7 +88,7 @@ const Home = () => {
                 activated.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex justify-center p-6 bg-gray-50 rounded-b-lg">
+            <CardContent className="flex justify-center p-6 bg-secondary/30 rounded-b-lg">
               <ExtensionPopup />
             </CardContent>
           </Card>
@@ -88,7 +117,7 @@ const Home = () => {
                   Simulate Code Selection
                 </Button>
               </div>
-              <div className="bg-gray-100 p-4 rounded-lg text-sm text-gray-600">
+              <div className="bg-secondary/30 p-4 rounded-lg text-sm text-muted-foreground">
                 <p>
                   When activated in the real extension, users can click directly
                   on error messages and code blocks in Bolt.new to capture them
@@ -100,13 +129,21 @@ const Home = () => {
         </div>
 
         <div className="w-full lg:w-1/2 space-y-6">
-          <Tabs defaultValue="setup" className="w-full">
-            <TabsList className="grid grid-cols-2 mb-4">
-              <TabsTrigger value="setup" onClick={() => setActiveTab("setup")}>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="grid grid-cols-3 mb-4">
+              <TabsTrigger value="setup">
                 <Settings className="h-4 w-4 mr-2" />
                 API Setup
               </TabsTrigger>
-              <TabsTrigger value="about" onClick={() => setActiveTab("about")}>
+              <TabsTrigger value="subscription">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Subscription
+              </TabsTrigger>
+              <TabsTrigger value="about">
                 <Info className="h-4 w-4 mr-2" />
                 About
               </TabsTrigger>
@@ -114,6 +151,10 @@ const Home = () => {
 
             <TabsContent value="setup" className="space-y-4">
               <ApiKeySetup />
+            </TabsContent>
+
+            <TabsContent value="subscription" className="space-y-4">
+              <Payment userId={user?.id} />
             </TabsContent>
 
             <TabsContent value="about" className="space-y-4">
@@ -167,7 +208,7 @@ const Home = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="p-4 bg-blue-900/10 rounded-lg">
                   <h3 className="font-medium mb-2">Element Selection UI</h3>
                   <p className="text-sm">
                     Click directly on error messages and code blocks to capture
@@ -175,7 +216,7 @@ const Home = () => {
                   </p>
                 </div>
 
-                <div className="p-4 bg-green-50 rounded-lg">
+                <div className="p-4 bg-green-900/10 rounded-lg">
                   <h3 className="font-medium mb-2">Streamlined Workflow</h3>
                   <p className="text-sm">
                     Simple popup interface guides users through the entire error
@@ -183,7 +224,7 @@ const Home = () => {
                   </p>
                 </div>
 
-                <div className="p-4 bg-purple-50 rounded-lg">
+                <div className="p-4 bg-purple-900/10 rounded-lg">
                   <h3 className="font-medium mb-2">Background Processing</h3>
                   <p className="text-sm">
                     Service worker handles API calls to selected LLM using
@@ -191,7 +232,7 @@ const Home = () => {
                   </p>
                 </div>
 
-                <div className="p-4 bg-yellow-50 rounded-lg">
+                <div className="p-4 bg-yellow-900/10 rounded-lg">
                   <h3 className="font-medium mb-2">Minimal Interaction</h3>
                   <p className="text-sm">
                     Eliminates manual screenshots, copying/pasting, and prompt

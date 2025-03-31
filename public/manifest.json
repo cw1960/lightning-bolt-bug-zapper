@@ -34,5 +34,8 @@
       "js": ["content.js"]
     }
   ],
-  "options_page": "options.html"
+  "options_page": "options.html",
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://api.anthropic.com https://generativelanguage.googleapis.com 'self'"
+  }
 }

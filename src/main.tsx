@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { BrowserRouter } from "react-router-dom";
+import { initializeApi } from "./api";
 
 import { TempoDevtools } from "tempo-devtools";
 TempoDevtools.init();
@@ -15,6 +16,17 @@ const isExtension =
   chrome.runtime.id;
 
 const basename = import.meta.env.BASE_URL;
+
+// Set up Polar access token in localStorage for development
+if (!isExtension && !localStorage.getItem("POLAR_ACCESS_TOKEN")) {
+  localStorage.setItem(
+    "POLAR_ACCESS_TOKEN",
+    "polar_oat_mf5aJz1c7jlNp2g8oG06JL3fh5vK1x7brkwWO0YsHsz",
+  );
+}
+
+// Initialize API routes and database
+initializeApi().catch(console.error);
 
 if (isExtension) {
   // Load the popup component for the extension
