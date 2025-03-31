@@ -1,3 +1,4 @@
+// Main App component file for the Lightning Bolt Bug Zapper Chrome Extension
 import { Suspense, useEffect, useState } from "react";
 import { useRoutes, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./components/home";
