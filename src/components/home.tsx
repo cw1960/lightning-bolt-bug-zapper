@@ -9,10 +9,13 @@ import {
 } from "./ui/card";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
-import { Zap, Settings, Info, CreditCard } from "lucide-react";
+import { Zap, Settings, Info, CreditCard, Database } from "lucide-react";
 import ExtensionPopup from "./ExtensionPopup";
 import SelectionOverlay from "./SelectionOverlay";
 import ApiKeySetup from "./ApiKeySetup";
+import CompatibilityChecker from "./CompatibilityChecker";
+import DatabaseSetup from "./DatabaseSetup";
+import AuthDebugger from "./AuthDebugger";
 import Payment from "./Payment";
 import UserMenu from "./UserMenu";
 import { useAuth } from "../lib/authContext";
@@ -134,7 +137,7 @@ const Home = () => {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-3 mb-4">
+            <TabsList className="grid grid-cols-4 mb-4">
               <TabsTrigger value="setup">
                 <Settings className="h-4 w-4 mr-2" />
                 API Setup
@@ -142,6 +145,10 @@ const Home = () => {
               <TabsTrigger value="subscription">
                 <CreditCard className="h-4 w-4 mr-2" />
                 Subscription
+              </TabsTrigger>
+              <TabsTrigger value="database">
+                <Database className="h-4 w-4 mr-2" />
+                Database
               </TabsTrigger>
               <TabsTrigger value="about">
                 <Info className="h-4 w-4 mr-2" />
@@ -155,6 +162,12 @@ const Home = () => {
 
             <TabsContent value="subscription" className="space-y-4">
               <Payment userId={user?.id} />
+            </TabsContent>
+
+            <TabsContent value="database" className="space-y-4">
+              <AuthDebugger />
+              <DatabaseSetup />
+              <CompatibilityChecker />
             </TabsContent>
 
             <TabsContent value="about" className="space-y-4">

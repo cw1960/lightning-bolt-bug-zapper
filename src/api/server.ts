@@ -1,78 +1,60 @@
-// This file contains server-side API handlers that would be implemented in a real backend
-// For the extension, we'll create API routes that will be called from the extension
+// This file contains server-side API handlers for the extension
 
-import {
-  createCheckoutSession,
-  createCustomerPortalSession,
-  handleWebhookEvent,
-} from "./payment";
+import { supabase } from "../lib/supabaseClient";
+import { getLicenseInfo, updateLicenseState } from "./payment";
 
-// API route for creating a checkout session
-export async function handleCreateCheckout(req: Request) {
+// Handle license verification requests
+export async function handleVerifyLicense(request: Request) {
   try {
-    const { userId } = await req.json();
+    // Parse the request body
+    const { userId, licenseToken } = await request.json();
 
     if (!userId) {
-      return new Response(JSON.stringify({ message: "User ID is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: "User ID is required" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
-    const checkoutData = await createCheckoutSession(userId);
+    // Get the user's license info from Supabase
+    const licenseInfo = await getLicenseInfo(userId);
 
-    return new Response(JSON.stringify({ checkoutUrl: checkoutData.url }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ message: error.message || "An error occurred" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
-  }
-}
-
-// API route for creating a customer portal session
-export async function handleCustomerPortal(req: Request) {
-  try {
-    const { userId } = await req.json();
-
-    if (!userId) {
-      return new Response(JSON.stringify({ message: "User ID is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    // If we have a license token, verify it with Chrome Web Store API
+    // This would be done in the background script in a real extension
+    // Here we're just simulating the response
+    if (licenseToken) {
+      console.log(
+        "License token provided, would verify with Chrome Web Store API",
+      );
+      // In a real implementation, this would call the Chrome Web Store API
+      // and update the license info in Supabase based on the response
     }
 
-    const portalData = await createCustomerPortalSession(userId);
-
-    return new Response(JSON.stringify({ portalUrl: portalData.url }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (error: any) {
+    // Return the license info
     return new Response(
-      JSON.stringify({ message: error.message || "An error occurred" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({
+        success: true,
+        licenseInfo: licenseInfo || {
+          state: "FREE_TRIAL",
+          accessLevel: "FREE_TRIAL",
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
     );
-  }
-}
-
-// API route for handling webhook events
-export async function handleWebhook(req: Request) {
-  try {
-    const event = await req.json();
-    await handleWebhookEvent(event);
-
-    return new Response(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (error: any) {
+  } catch (error) {
+    console.error("Error verifying license:", error);
     return new Response(
-      JSON.stringify({ message: error.message || "An error occurred" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({ success: false, error: "Failed to verify license" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
     );
   }
 }

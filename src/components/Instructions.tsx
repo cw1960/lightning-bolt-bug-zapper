@@ -16,7 +16,7 @@ const Instructions = () => {
   const navigate = useNavigate();
 
   const handleContinue = () => {
-    navigate("/onboarding");
+    navigate("/");
   };
 
   return (
@@ -124,7 +124,7 @@ const Instructions = () => {
         </CardContent>
         <CardFooter>
           <Button onClick={handleContinue} className="w-full">
-            Continue to Setup
+            Continue to Dashboard
           </Button>
         </CardFooter>
       </Card>

@@ -25,6 +25,10 @@ if (!isExtension && !localStorage.getItem("POLAR_ACCESS_TOKEN")) {
   );
 }
 
+// Make Polar token available globally
+window.POLAR_ACCESS_TOKEN =
+  "polar_oat_mf5aJz1c7jlNp2g8oG06JL3fh5vK1x7brkwWO0YsHsz";
+
 // Initialize API routes and database
 initializeApi().catch(console.error);
 

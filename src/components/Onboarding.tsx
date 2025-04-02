@@ -72,7 +72,7 @@ const Onboarding = () => {
 
           // Wait 1.5 seconds then redirect to home
           setTimeout(() => {
-            navigate("/");
+            navigate("/instructions");
           }, 1500);
         }, 1000);
         return;
@@ -84,25 +84,72 @@ const Onboarding = () => {
       }
 
       // Update user metadata
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: { firstName },
-      });
+      console.log("Updating user metadata for user ID:", user.id);
+      const { data: updateData, error: updateError } =
+        await supabase.auth.updateUser({
+          data: { firstName },
+        });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Error updating user metadata:", updateError);
+        throw updateError;
+      }
+      console.log("User metadata updated successfully:", updateData);
 
       // Store API keys in user_settings table
-      const { error: settingsError } = await supabase
+      console.log(
+        "Storing API keys in user_settings table for user ID:",
+        user.id,
+      );
+
+      // First check if the user already has settings
+      const { data: existingSettings, error: checkError } = await supabase
         .from("user_settings")
-        .upsert(
-          {
-            user_id: user.id,
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      console.log(
+        "Existing settings check:",
+        existingSettings ? "Found" : "Not found",
+        checkError ? `Error: ${checkError.message}` : "No error",
+      );
+
+      let settingsData, settingsError;
+
+      if (existingSettings) {
+        // Update existing record
+        const { data, error } = await supabase
+          .from("user_settings")
+          .update({
             claude_api_key: claudeApiKey || null,
             gemini_api_key: geminiApiKey || null,
-          },
-          { onConflict: "user_id" },
-        );
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", user.id);
 
-      if (settingsError) throw settingsError;
+        settingsData = data;
+        settingsError = error;
+      } else {
+        // Insert new record
+        const { data, error } = await supabase.from("user_settings").insert({
+          user_id: user.id,
+          claude_api_key: claudeApiKey || null,
+          gemini_api_key: geminiApiKey || null,
+        });
+
+        settingsData = data;
+        settingsError = error;
+      }
+
+      if (settingsError) {
+        console.error("Error storing API keys:", settingsError);
+        throw settingsError;
+      }
+      console.log(
+        "API keys stored successfully:",
+        settingsData ? "Data returned" : "No data returned",
+      );
 
       setMessage({
         type: "success",
@@ -111,7 +158,7 @@ const Onboarding = () => {
 
       // Wait 1.5 seconds then redirect to home
       setTimeout(() => {
-        navigate("/");
+        navigate("/instructions");
       }, 1500);
     } catch (error: any) {
       console.error("Onboarding error:", error);

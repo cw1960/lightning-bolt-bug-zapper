@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Separator } from "../components/ui/separator";
-import { Wand2, Settings, Zap, Brain } from "lucide-react";
+import {
+  Wand2,
+  Settings,
+  Zap,
+  Brain,
+  CreditCard,
+  Lock,
+  AlertTriangle,
+} from "lucide-react";
 import SelectionStage from "./SelectionStage";
 import CapturedContent from "./CapturedContent";
 import LLMSelector from "./LLMSelector";
 import FixResult from "./FixResult";
 import LoadingIndicator from "./LoadingIndicator";
+import { useAuth } from "../lib/authContext";
 
 interface ExtensionPopupProps {
   onClose?: () => void;
 }
 
 const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
+  const { isSubscribed, freeTrialFixesUsed, incrementFreeTrialFixes } =
+    useAuth();
+  const FREE_TRIAL_LIMIT = 5;
+
   // State for tracking the current workflow stage
   const [currentStage, setCurrentStage] = useState<
     "selection" | "processing" | "result"
@@ -30,6 +43,12 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
   const [selectedLLM, setSelectedLLM] = useState<string>("claude");
   const [apiKeysConfigured, setApiKeysConfigured] = useState<boolean>(false);
 
+  // State for license status
+  const [licenseStatus, setLicenseStatus] = useState<{
+    state: string;
+    accessLevel: string;
+  }>({ state: "FREE_TRIAL", accessLevel: "FREE_TRIAL" });
+
   // State for fixed code result
   const [fixedCode, setFixedCode] = useState<string>("");
   const [editedFixedCode, setEditedFixedCode] = useState<string>("");
@@ -44,7 +63,7 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
   // Alias for better readability
   const setMessage = setErrorState;
 
-  // Check if API keys are configured
+  // Check if API keys are configured and license status
   useEffect(() => {
     // In a real extension, this would check Chrome storage
     if (typeof chrome !== "undefined" && chrome.storage) {
@@ -64,9 +83,20 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
           }
         },
       );
+
+      // Check license status
+      if (chrome.runtime) {
+        chrome.runtime.sendMessage({ type: "CHECK_LICENSE" }, (response) => {
+          if (response && response.success && response.licenseStatus) {
+            setLicenseStatus(response.licenseStatus);
+          }
+        });
+      }
     } else {
       // For development/demo, set to true
       setApiKeysConfigured(true);
+      // For development/demo, simulate license status
+      setLicenseStatus({ state: "FREE_TRIAL", accessLevel: "FREE_TRIAL" });
     }
   }, []);
 
@@ -84,6 +114,9 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
           }
         } else if (message.type === "SELECTION_CANCELLED") {
           // Do nothing, user cancelled selection
+        } else if (message.type === "LICENSE_STATUS_UPDATED") {
+          // Update license status when it changes
+          setLicenseStatus(message.licenseStatus);
         }
       };
 
@@ -146,7 +179,77 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
     setSelectedLLM(llm);
   };
 
+  const handlePurchaseLicense = () => {
+    if (typeof chrome !== "undefined" && chrome.runtime) {
+      chrome.runtime.sendMessage({ type: "PURCHASE_LICENSE" }, (response) => {
+        if (response && response.success) {
+          if (response.url) {
+            // Open Chrome Web Store in a new tab
+            window.open(response.url, "_blank");
+          }
+          setMessage({
+            type: "success",
+            message:
+              response.message ||
+              "Please complete the purchase in the Chrome Web Store.",
+            isVisible: true,
+          });
+        } else {
+          setMessage({
+            type: "error",
+            message:
+              response?.error ||
+              "Failed to initiate purchase. Please try again.",
+            isVisible: true,
+          });
+        }
+      });
+    } else {
+      // Fallback for development/demo
+      window.open(
+        "https://chrome.google.com/webstore/detail/lightning-bolt-bug-zapper",
+        "_blank",
+      );
+      setMessage({
+        type: "success",
+        message: "Demo mode: Redirecting to Chrome Web Store",
+        isVisible: true,
+      });
+    }
+  };
+
   const handleGenerateFix = () => {
+    // Check if user has a premium license
+    if (
+      licenseStatus.state !== "ACTIVE" &&
+      licenseStatus.accessLevel !== "FULL" &&
+      licenseStatus.state !== "FREE_TRIAL"
+    ) {
+      setMessage({
+        type: "error",
+        message:
+          "Your free trial has ended. Please purchase a license to continue using premium features.",
+        isVisible: true,
+      });
+      // Show purchase dialog
+      handlePurchaseLicense();
+      return;
+    }
+
+    // Check if user is on free trial but has used up their quota
+    if (licenseStatus.state === "FREE_TRIAL" && !isSubscribed) {
+      if (freeTrialFixesUsed >= FREE_TRIAL_LIMIT) {
+        setMessage({
+          type: "error",
+          message: `You've reached the limit of ${FREE_TRIAL_LIMIT} fixes in free trial mode. Please purchase a license to continue.`,
+          isVisible: true,
+        });
+        // Show purchase dialog
+        handlePurchaseLicense();
+        return;
+      }
+    }
+
     // Show visual feedback before changing to processing stage
     const generateButton = document.querySelector(".generate-fix-button");
     if (generateButton) {
@@ -173,6 +276,10 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
             setFixedCode(response.data);
             setEditedFixedCode(response.data); // Initialize edited code with the generated fix
             setCurrentStage("result");
+            // Increment free trial usage if in free trial mode
+            if (licenseStatus.state === "FREE_TRIAL" && !isSubscribed) {
+              incrementFreeTrialFixes();
+            }
             // Clear any previous error
             setErrorState({ message: "", isVisible: false });
           } else {
@@ -196,6 +303,13 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
                   chrome.runtime.openOptionsPage();
                 }
               }, 1500);
+            } else if (errorMessage.includes("PREMIUM_REQUIRED")) {
+              // Premium license required error
+              setErrorState({
+                message:
+                  "This feature requires a premium license. Please purchase a license to continue.",
+                isVisible: true,
+              });
             } else {
               setErrorState({ message: errorMessage, isVisible: true });
             }
@@ -235,6 +349,11 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
           setEditedFixedCode(fixedCodeResponse); // Initialize edited code with the generated fix
           setErrorState({ message: "", isVisible: false }); // Clear any errors
           setCurrentStage("result");
+
+          // Increment free trial usage if in free trial mode
+          if (licenseStatus.state === "FREE_TRIAL" && !isSubscribed) {
+            incrementFreeTrialFixes();
+          }
         }
       }, 2000);
     }
@@ -273,7 +392,7 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
             console.log("Fix saved to Chrome storage");
             setMessage({
               type: "success",
-              text: `Fix "${fixName}" saved successfully!`,
+              message: `Fix "${fixName}" saved successfully!`,
               isVisible: true,
             });
 
@@ -288,7 +407,7 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
       console.log("Saving fix:", { name: fixName, code });
       setMessage({
         type: "success",
-        text: `Demo mode: Fix "${fixName}" saved successfully!`,
+        message: `Demo mode: Fix "${fixName}" saved successfully!`,
         isVisible: true,
       });
 
@@ -340,6 +459,47 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
 
       {/* Content */}
       <div className="extension-popup-content p-4 space-y-4">
+        {/* License Status Banner */}
+        {licenseStatus.state !== "ACTIVE" &&
+          licenseStatus.accessLevel !== "FULL" && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 mb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-amber-600 font-medium flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    {licenseStatus.state === "FREE_TRIAL"
+                      ? "Free Trial Mode"
+                      : "License Required"}
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    {licenseStatus.state === "FREE_TRIAL"
+                      ? `${freeTrialFixesUsed}/${FREE_TRIAL_LIMIT} fixes used. Upgrade to unlock unlimited fixes.`
+                      : "Your trial has ended. Purchase a license to continue using premium features."}
+                  </p>
+                  {licenseStatus.state === "FREE_TRIAL" &&
+                    freeTrialFixesUsed >= FREE_TRIAL_LIMIT - 1 && (
+                      <p className="text-xs flex items-center gap-1 text-red-500 mt-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {freeTrialFixesUsed >= FREE_TRIAL_LIMIT
+                          ? "Trial limit reached! Purchase to continue."
+                          : "Only 1 fix remaining in your trial!"}
+                      </p>
+                    )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handlePurchaseLicense}
+                  className="flex items-center gap-1"
+                >
+                  <CreditCard className="h-3 w-3" />
+                  {licenseStatus.state === "FREE_TRIAL"
+                    ? "Upgrade"
+                    : "Purchase"}
+                </Button>
+              </div>
+            </div>
+          )}
+
         {!apiKeysConfigured ? (
           <div className="flex flex-col items-center justify-center h-full space-y-4 p-4">
             <Wand2 className="h-12 w-12 text-muted-foreground" />
@@ -378,9 +538,12 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
             <Separator className="my-4" />
 
             {errorState.isVisible && (
-              <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-md mb-4">
+              <div
+                className={`bg-${errorState.type === "success" ? "green" : "destructive"}/15 border border-${errorState.type === "success" ? "green" : "destructive"} text-${errorState.type === "success" ? "green" : "destructive"}-600 px-4 py-3 rounded-md mb-4`}
+              >
                 <p className="text-sm font-medium">
-                  Error: {errorState.message}
+                  {errorState.type === "success" ? "Success" : "Error"}:{" "}
+                  {errorState.message}
                 </p>
               </div>
             )}
@@ -394,7 +557,12 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
               className="w-full relative generate-fix-button"
               size="lg"
               onClick={handleGenerateFix}
-              disabled={!isErrorSelected || !isCodeSelected}
+              disabled={
+                !isErrorSelected ||
+                !isCodeSelected ||
+                (licenseStatus.state === "FREE_TRIAL" &&
+                  freeTrialFixesUsed >= FREE_TRIAL_LIMIT)
+              }
               variant={
                 isErrorSelected && isCodeSelected ? "default" : "outline"
               }
@@ -422,6 +590,12 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
                   </span>
                   Select Code Block to Continue
+                </span>
+              ) : licenseStatus.state === "FREE_TRIAL" &&
+                freeTrialFixesUsed >= FREE_TRIAL_LIMIT ? (
+                <span className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  Trial Limit Reached
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
@@ -544,27 +718,39 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
                   </svg>
                   Start Over
                 </Button>
-                <Button
-                  className="flex-1 flex items-center gap-2"
-                  onClick={() => window.open("https://bolt.new", "_blank")}
-                >
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 15 15"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
+                <div className="flex-1 flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 flex items-center gap-2"
+                    onClick={handlePurchaseLicense}
                   >
-                    <path
-                      d="M3 2C2.44772 2 2 2.44772 2 3V12C2 12.5523 2.44772 13 3 13H12C12.5523 13 13 12.5523 13 12V8.5C13 8.22386 12.7761 8 12.5 8C12.2239 8 12 8.22386 12 8.5V12H3V3L6.5 3C6.77614 3 7 2.77614 7 2.5C7 2.22386 6.77614 2 6.5 2H3ZM12.8536 2.14645C12.9015 2.19439 12.9377 2.24964 12.9621 2.30861C12.9861 2.36669 12.9996 2.4303 13 2.497L13 2.5V2.50049V5.5C13 5.77614 12.7761 6 12.5 6C12.2239 6 12 5.77614 12 5.5V3.70711L6.85355 8.85355C6.65829 9.04882 6.34171 9.04882 6.14645 8.85355C5.95118 8.65829 5.95118 8.34171 6.14645 8.14645L11.2929 3H9.5C9.22386 3 9 2.77614 9 2.5C9 2.22386 9.22386 2 9.5 2H12.4999H12.5C12.5678 2 12.6324 2.01349 12.6914 2.03794C12.7504 2.06234 12.8056 2.09851 12.8536 2.14645Z"
-                      fill="currentColor"
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                    ></path>
-                  </svg>
-                  Go to Bolt.new
-                </Button>
+                    <CreditCard className="h-4 w-4" />
+                    {licenseStatus.state === "ACTIVE"
+                      ? "Manage License"
+                      : "Get License"}
+                  </Button>
+                  <Button
+                    className="flex-1 flex items-center gap-2"
+                    onClick={() => window.open("https://bolt.new", "_blank")}
+                  >
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 15 15"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                    >
+                      <path
+                        d="M3 2C2.44772 2 2 2.44772 2 3V12C2 12.5523 2.44772 13 3 13H12C12.5523 13 13 12.5523 13 12V8.5C13 8.22386 12.7761 8 12.5 8C12.2239 8 12 8.22386 12 8.5V12H3V3L6.5 3C6.77614 3 7 2.77614 7 2.5C7 2.22386 6.77614 2 6.5 2H3ZM12.8536 2.14645C12.9015 2.19439 12.9377 2.24964 12.9621 2.30861C12.9861 2.36669 12.9996 2.4303 13 2.497L13 2.5V2.50049V5.5C13 5.77614 12.7761 6 12.5 6C12.2239 6 12 5.77614 12 5.5V3.70711L6.85355 8.85355C6.65829 9.04882 6.34171 9.04882 6.14645 8.85355C5.95118 8.65829 5.95118 8.34171 6.14645 8.14645L11.2929 3H9.5C9.22386 3 9 2.77614 9 2.5C9 2.22386 9.22386 2 9.5 2H12.4999H12.5C12.5678 2 12.6324 2.01349 12.6914 2.03794C12.7504 2.06234 12.8056 2.09851 12.8536 2.14645Z"
+                        fill="currentColor"
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                      ></path>
+                    </svg>
+                    Go to Bolt.new
+                  </Button>
+                </div>
               </div>
             </div>
           </>
@@ -574,7 +760,16 @@ const ExtensionPopup = ({ onClose = () => {} }: ExtensionPopupProps) => {
       {/* Footer */}
       <div className="bg-secondary/30 p-2 border-t border-border">
         <p className="text-xs text-muted-foreground text-center">
-          Lightning Bolt Bug Zapper v1.0 • Capture errors and fix them with AI
+          Lightning Bolt Bug Zapper v1.0 •
+          {licenseStatus.state === "ACTIVE" ? (
+            <span className="text-green-500 font-medium">Premium License</span>
+          ) : licenseStatus.state === "FREE_TRIAL" ? (
+            <span>
+              {freeTrialFixesUsed}/{FREE_TRIAL_LIMIT} Free Trial Fixes Used
+            </span>
+          ) : (
+            <span className="text-amber-500 font-medium">License Required</span>
+          )}
         </p>
       </div>
     </div>

@@ -63,6 +63,31 @@ const Auth = ({ onAuthStateChange = () => {} }: AuthProps) => {
     }
   }, [isDemoMode]);
 
+  // Force create tables on component mount
+  useEffect(() => {
+    if (!isDemoMode) {
+      const setupTables = async () => {
+        try {
+          console.log("Pre-creating database tables...");
+          // Create users table
+          const createUsersTable = `
+            CREATE TABLE IF NOT EXISTS public.users (
+              id UUID PRIMARY KEY,
+              email TEXT,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+          `;
+          await supabase.rpc("execute_sql", { sql: createUsersTable });
+          console.log("Users table created or verified");
+        } catch (err) {
+          console.error("Failed to pre-create tables:", err);
+        }
+      };
+      setupTables();
+    }
+  }, [isDemoMode]);
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -100,10 +125,10 @@ const Auth = ({ onAuthStateChange = () => {} }: AuthProps) => {
           // Notify parent component about auth state change
           onAuthStateChange(mockSession);
 
-          // Wait 2 seconds then redirect to payment page
+          // Wait 2 seconds then redirect to onboarding page
           setTimeout(() => {
             // Use React Router navigation instead of direct window.location
-            navigate("/payment");
+            navigate("/onboarding");
           }, 2000);
         }, 1500);
         return;
@@ -111,27 +136,29 @@ const Auth = ({ onAuthStateChange = () => {} }: AuthProps) => {
 
       console.log("Attempting to sign up with Supabase:", { email });
 
-      // Production mode - actual API call
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
       try {
-        console.log("Calling supabase.auth.signUp");
-        const { data, error } = await supabase.auth.signUp(
-          {
-            email,
-            password,
-            options: {
-              emailRedirectTo: window.location.origin,
-              data: {
-                first_login: true,
-              },
+        console.log(
+          "Calling supabase.auth.signUp with URL:",
+          supabase.supabaseUrl,
+        );
+        console.log("Email redirect URL:", window.location.origin);
+
+        console.log("Sending signup request with these options:", {
+          email,
+          emailRedirectTo: window.location.origin,
+          metadata: { first_login: true },
+        });
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: {
+              first_login: true,
             },
           },
-          { abortSignal: controller.signal },
-        );
-
-        clearTimeout(timeoutId);
+        });
 
         console.log("Sign up response:", {
           data: data
@@ -163,21 +190,159 @@ const Auth = ({ onAuthStateChange = () => {} }: AuthProps) => {
 
         if (data.session) {
           console.log("Session created:", data.session.user.id);
-          // Wait 2 seconds then redirect to payment page
+
+          // Create a user record in the public schema
+          try {
+            // First ensure the table exists
+            console.log("Ensuring users table exists before insert");
+            const createUsersTable = `
+              CREATE TABLE IF NOT EXISTS public.users (
+                id UUID PRIMARY KEY,
+                email TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+              );
+            `;
+            await supabase.rpc("execute_sql", { sql: createUsersTable });
+
+            // Now try the insert
+            console.log("Attempting to insert user record");
+            const { error: userError } = await supabase.from("users").upsert(
+              {
+                id: data.user.id,
+                email: data.user.email,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "id" },
+            );
+
+            if (userError) {
+              console.error("Error creating user record:", userError);
+
+              // If the error is because the table doesn't exist
+              if (
+                userError.code === "PGRST116" ||
+                (userError.message &&
+                  userError.message.includes("does not exist"))
+              ) {
+                console.log(
+                  "Users table may not exist, trying to create it...",
+                );
+
+                // Try to create the table
+                const { error: createError } = await supabase.rpc(
+                  "execute_sql",
+                  {
+                    sql: `
+                    CREATE TABLE IF NOT EXISTS public.users (
+                      id UUID PRIMARY KEY,
+                      email TEXT,
+                      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                      updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                  `,
+                  },
+                );
+
+                if (createError) {
+                  console.error("Error creating users table:", createError);
+                } else {
+                  console.log("Users table created, trying insert again");
+
+                  // Try insert again
+                  const { error: retryError } = await supabase
+                    .from("users")
+                    .upsert(
+                      {
+                        id: data.user.id,
+                        email: data.user.email,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      },
+                      { onConflict: "id" },
+                    );
+
+                  if (retryError) {
+                    console.error("Error on retry insert:", retryError);
+                  } else {
+                    console.log("User record created successfully on retry");
+                  }
+                }
+              }
+            } else {
+              console.log("User record created successfully");
+            }
+          } catch (err: any) {
+            console.error("Exception creating user record:", err);
+
+            // If the error is because the table doesn't exist
+            if (
+              err.code === "PGRST116" ||
+              (err.message && err.message.includes("does not exist"))
+            ) {
+              console.log("Users table may not exist, trying to create it...");
+
+              try {
+                // Try to create the table
+                const { error: createError } = await supabase.rpc(
+                  "execute_sql",
+                  {
+                    sql: `
+                    CREATE TABLE IF NOT EXISTS public.users (
+                      id UUID PRIMARY KEY,
+                      email TEXT,
+                      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                      updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    );
+                  `,
+                  },
+                );
+
+                if (createError) {
+                  console.error("Error creating users table:", createError);
+                } else {
+                  console.log("Users table created, trying insert again");
+
+                  // Try insert again
+                  const { error: retryError } = await supabase
+                    .from("users")
+                    .upsert(
+                      {
+                        id: data.user.id,
+                        email: data.user.email,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      },
+                      { onConflict: "id" },
+                    );
+
+                  if (retryError) {
+                    console.error("Error on retry insert:", retryError);
+                  } else {
+                    console.log("User record created successfully on retry");
+                  }
+                }
+              } catch (createErr) {
+                console.error("Failed to create users table:", createErr);
+              }
+            }
+          }
+
+          // Wait 2 seconds then redirect to onboarding page
           setTimeout(() => {
             onAuthStateChange(data.session);
             // Use React Router navigation instead of direct window.location
-            navigate("/payment");
+            navigate("/onboarding");
           }, 2000);
         } else {
           console.log("No session in response, user may need to confirm email");
+          setMessage({
+            type: "success",
+            text: "Account created! Please check your email to confirm your registration.",
+          });
         }
       } catch (apiError: any) {
-        if (apiError.name === "AbortError") {
-          throw new Error(
-            "Network request timed out. Please check your connection and try again.",
-          );
-        }
         throw apiError;
       }
     } catch (error: any) {
@@ -237,20 +402,11 @@ const Auth = ({ onAuthStateChange = () => {} }: AuthProps) => {
 
       console.log("Attempting to sign in with Supabase:", { email });
 
-      // Production mode - actual API call
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
       try {
-        const { data, error } = await supabase.auth.signInWithPassword(
-          {
-            email,
-            password,
-          },
-          { abortSignal: controller.signal },
-        );
-
-        clearTimeout(timeoutId);
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
         console.log("Sign in response:", {
           data: data
@@ -288,11 +444,6 @@ const Auth = ({ onAuthStateChange = () => {} }: AuthProps) => {
           }, 1500);
         }
       } catch (apiError: any) {
-        if (apiError.name === "AbortError") {
-          throw new Error(
-            "Network request timed out. Please check your connection and try again.",
-          );
-        }
         throw apiError;
       }
     } catch (error: any) {

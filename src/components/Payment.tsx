@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import {
+  checkSubscriptionStatus,
+  createSubscription,
+} from "../lib/paymentClient";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -65,39 +69,29 @@ const Payment = ({ userId, onSubscriptionChange = () => {} }: PaymentProps) => {
     setMessage(null);
 
     try {
-      // Create a checkout session with Polar
-      const response = await fetch("/api/create-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId }),
-      });
+      // Create a subscription directly in Supabase
+      const result = await createSubscription(userId);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Failed to create checkout session",
-        );
-      }
-
-      const { checkoutUrl } = await response.json();
-
-      // For demo purposes, simulate a successful payment
-      if (window.location.pathname === "/payment") {
-        // Simulate successful payment and redirect to instructions
-        setTimeout(() => {
-          window.location.href = "/instructions";
-        }, 1500);
+      if (result.success) {
+        setMessage({
+          type: "success",
+          text: "Subscription activated successfully!",
+        });
+        // Store subscription status in local storage
+        localStorage.setItem("userSubscriptionStatus", "active");
+        // Refresh subscription data
+        fetchSubscription();
       } else {
-        // Redirect to Polar checkout in production
-        window.location.href = checkoutUrl;
+        throw new Error("Failed to create subscription");
       }
     } catch (error: any) {
       setMessage({
         type: "error",
-        text: error.message || "An error occurred during checkout",
+        text:
+          error.message ||
+          "An error occurred during subscription. Please try again.",
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -111,24 +105,11 @@ const Payment = ({ userId, onSubscriptionChange = () => {} }: PaymentProps) => {
     setMessage(null);
 
     try {
-      // Get customer portal URL
-      const response = await fetch("/api/customer-portal", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId }),
+      // For now, just show a message that this feature is coming soon
+      setMessage({
+        type: "success",
+        text: "Subscription management will be available soon.",
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create portal session");
-      }
-
-      const { portalUrl } = await response.json();
-
-      // Redirect to customer portal
-      window.location.href = portalUrl;
     } catch (error: any) {
       setMessage({
         type: "error",

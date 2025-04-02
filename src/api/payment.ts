@@ -1,151 +1,113 @@
-// This file would be used in a server environment, not in the browser extension
-// For the extension, we'll create API endpoints that will be called from the extension
+// This file contains functions for handling payments and license verification
 
 import { supabase } from "../lib/supabaseClient";
 
-const POLAR_ACCESS_TOKEN =
-  "polar_oat_mf5aJz1c7jlNp2g8oG06JL3fh5vK1x7brkwWO0YsHsz";
-const POLAR_API_URL = "https://api.polar.sh/v1";
+// Types for license information
+export interface LicenseInfo {
+  createdTime: number;
+  licenseId: string;
+  itemId: string;
+  sku: string;
+  userId: string;
+  state: "ACTIVE" | "EXPIRED" | "PENDING" | "INVALID";
+  accessLevel: "FREE_TRIAL" | "FULL";
+  maxAgeSecs?: number;
+}
 
-// Create a checkout session with Polar
-export async function createCheckoutSession(userId: string) {
+// Store license information in Supabase
+export async function storeLicenseInfo(
+  userId: string,
+  licenseInfo: LicenseInfo,
+) {
   try {
-    // Get user details from Supabase
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("email")
-      .eq("id", userId)
-      .single();
+    console.log("Storing license info for user:", userId);
 
-    if (userError) throw userError;
+    const subscriptionData = {
+      user_id: userId,
+      subscription_id: licenseInfo.licenseId,
+      status: licenseInfo.state.toLowerCase(),
+      current_period_start: new Date(licenseInfo.createdTime).toISOString(),
+      current_period_end: licenseInfo.maxAgeSecs
+        ? new Date(
+            licenseInfo.createdTime + licenseInfo.maxAgeSecs * 1000,
+          ).toISOString()
+        : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // Default to 1 year if not specified
+      license_data: licenseInfo,
+      access_level: licenseInfo.accessLevel,
+    };
 
-    // Create checkout session with Polar
-    const response = await fetch(`${POLAR_API_URL}/checkout/sessions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${POLAR_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify({
-        success_url: `${window.location.origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${window.location.origin}/payment-cancel`,
-        customer_email: userData.email,
-        metadata: {
-          user_id: userId,
-        },
-        subscription_plan_id: "your-subscription-plan-id", // Replace with your actual plan ID
-      }),
-    });
+    console.log("Upserting license data:", subscriptionData);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to create checkout session");
+    const { data: result, error } = await supabase
+      .from("subscriptions")
+      .upsert(subscriptionData, { onConflict: "user_id" })
+      .select();
+
+    if (error) {
+      console.error("Error updating license info:", error);
+      throw error;
     }
 
-    const checkoutData = await response.json();
-    return checkoutData;
+    console.log("License info updated successfully:", result);
+    return result;
   } catch (error) {
-    console.error("Error creating checkout session:", error);
+    console.error("Error in storeLicenseInfo:", error);
     throw error;
   }
 }
 
-// Create a customer portal session
-export async function createCustomerPortalSession(userId: string) {
+// Get license information from Supabase
+export async function getLicenseInfo(
+  userId: string,
+): Promise<LicenseInfo | null> {
   try {
-    // Get subscription from Supabase
-    const { data: subscriptionData, error: subscriptionError } = await supabase
+    const { data, error } = await supabase
       .from("subscriptions")
-      .select("customer_id")
+      .select("license_data")
       .eq("user_id", userId)
       .single();
 
-    if (subscriptionError) throw subscriptionError;
-
-    // Create portal session with Polar
-    const response = await fetch(`${POLAR_API_URL}/customer/portal`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${POLAR_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify({
-        customer_id: subscriptionData.customer_id,
-        return_url: window.location.origin,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to create portal session");
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No data found
+        console.log("No license found for user:", userId);
+        return null;
+      }
+      console.error("Error fetching license info:", error);
+      throw error;
     }
 
-    const portalData = await response.json();
-    return portalData;
+    return data?.license_data || null;
   } catch (error) {
-    console.error("Error creating customer portal session:", error);
-    throw error;
+    console.error("Error in getLicenseInfo:", error);
+    return null;
   }
 }
 
-// Handle webhook events from Polar
-export async function handleWebhookEvent(event: any) {
-  const eventType = event.type;
-  const data = event.data;
+// Update license state in Supabase
+export async function updateLicenseState(
+  userId: string,
+  state: "ACTIVE" | "EXPIRED" | "PENDING" | "INVALID",
+) {
+  try {
+    // First get the current license data
+    const licenseInfo = await getLicenseInfo(userId);
+    if (!licenseInfo) {
+      console.warn(
+        "Cannot update license state: No license found for user",
+        userId,
+      );
+      return false;
+    }
 
-  switch (eventType) {
-    case "subscription.created":
-    case "subscription.updated":
-      await updateSubscription(data);
-      break;
-    case "subscription.deleted":
-      await cancelSubscription(data);
-      break;
-    default:
-      console.log(`Unhandled event type: ${eventType}`);
-  }
+    // Update the state
+    licenseInfo.state = state;
 
-  return { success: true };
-}
-
-// Update subscription in Supabase
-async function updateSubscription(data: any) {
-  const userId = data.metadata?.user_id;
-  if (!userId) return;
-
-  const subscriptionData = {
-    user_id: userId,
-    subscription_id: data.id,
-    customer_id: data.customer,
-    status: data.status,
-    plan_id: data.plan.id,
-    current_period_start: new Date(
-      data.current_period_start * 1000,
-    ).toISOString(),
-    current_period_end: new Date(data.current_period_end * 1000).toISOString(),
-    cancel_at_period_end: data.cancel_at_period_end,
-  };
-
-  const { error } = await supabase
-    .from("subscriptions")
-    .upsert(subscriptionData, { onConflict: "user_id" });
-
-  if (error) {
-    console.error("Error updating subscription:", error);
-  }
-}
-
-// Cancel subscription in Supabase
-async function cancelSubscription(data: any) {
-  const userId = data.metadata?.user_id;
-  if (!userId) return;
-
-  const { error } = await supabase
-    .from("subscriptions")
-    .update({ status: "canceled" })
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("Error canceling subscription:", error);
+    // Store the updated license info
+    await storeLicenseInfo(userId, licenseInfo);
+    return true;
+  } catch (error) {
+    console.error("Error updating license state:", error);
+    return false;
   }
 }

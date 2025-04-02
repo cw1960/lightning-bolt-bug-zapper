@@ -1,19 +1,13 @@
-import {
-  handleCreateCheckout,
-  handleCustomerPortal,
-  handleWebhook,
-} from "./server";
+import { handleVerifyLicense } from "./server";
 
 // This file sets up API routes for the application
 // In a real application, these would be server-side routes
 // For this demo, we'll simulate them in the browser
 
 export async function setupApiRoutes() {
-  // Create a simple router
+  // Create a simple router with license verification endpoint
   const router = {
-    "/api/create-checkout": handleCreateCheckout,
-    "/api/customer-portal": handleCustomerPortal,
-    "/api/webhook": handleWebhook,
+    "/api/verify-license": handleVerifyLicense,
   };
 
   // Intercept fetch requests to our API routes
