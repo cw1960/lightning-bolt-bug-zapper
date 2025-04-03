@@ -34,9 +34,14 @@ initializeApi().catch(console.error);
 
 if (isExtension) {
   // Load the popup component for the extension
-  import("./popup.tsx").then(() => {
-    console.log("Extension popup loaded");
-  });
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <BrowserRouter basename={basename}>
+        <App />
+      </BrowserRouter>
+    </React.StrictMode>,
+  );
+  console.log("Extension popup loaded");
 } else {
   // Load the regular app for development
   ReactDOM.createRoot(document.getElementById("root")!).render(
