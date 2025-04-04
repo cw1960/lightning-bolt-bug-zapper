@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Use environment variables for production, fallback to demo values for development
+// Use environment variables for production fallback to demo values for development
 const isDemoMode =
   !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabaseUrl =
@@ -13,7 +13,7 @@ const supabaseAnonKey =
 // Log the actual values being used (without exposing full key)
 console.log(`Supabase URL being used: ${supabaseUrl}`);
 console.log(
-  `Supabase Anon Key being used: ${supabaseAnonKey.substring(0, 10)}...`,
+  `Supabase Anon Key being used: ${supabaseAnonKey.substring(0, 10)}...`
 );
 
 console.log(`Running in ${isDemoMode ? "DEMO" : "PRODUCTION"} mode`);
@@ -26,20 +26,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storageKey: "lightning-bolt-bug-zapper-auth",
+    storageKey: "lightning-bolt-bug-zapper-auth"
   },
   global: {
     headers: {
-      "Cache-Control": "no-cache",
-    },
+      "Cache-Control": "no-cache"
+    }
   },
   db: {
-    schema: "public",
+    schema: "public"
   },
   // Increase timeout for slow connections
   realtime: {
-    timeout: 60000,
-  },
+    timeout: 60000
+  }
 });
 
 // Initialize Supabase schema if needed
@@ -50,7 +50,7 @@ export async function initializeSupabaseSchema() {
     !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   if (isDemoMode) {
-    // In demo mode, we don't need to initialize the schema
+    // In demo mode we don't need to initialize the schema
     console.log("Demo mode: Skipping Supabase schema initialization");
     return;
   }
@@ -65,7 +65,7 @@ export async function initializeSupabaseSchema() {
     console.log(
       "Auth check:",
       authError ? "Error" : "OK",
-      authError ? authError.message : "",
+      authError ? authError.message : ""
     );
 
     // Check if user_settings table exists and create it if it doesn't
@@ -79,12 +79,12 @@ export async function initializeSupabaseSchema() {
           "Error checking user_settings table:",
           userSettingsCheckError.message,
           "Code:",
-          userSettingsCheckError.code,
+          userSettingsCheckError.code
         );
 
         if (userSettingsCheckError.code === "PGRST116") {
           console.log(
-            "user_settings table doesn't exist, attempting to create it...",
+            "user_settings table doesn't exist, attempting to create it..."
           );
           // Try to create the table with direct SQL
           const { error: sqlError } = await supabase.rpc("execute_sql", {
@@ -98,13 +98,13 @@ export async function initializeSupabaseSchema() {
                   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                   UNIQUE(user_id)
                 );
-              `,
+              `
           });
 
           if (sqlError) {
             console.error(
               "Error creating user_settings table with SQL:",
-              sqlError,
+              sqlError
             );
           } else {
             console.log("user_settings table created successfully with SQL");
@@ -127,7 +127,7 @@ export async function initializeSupabaseSchema() {
       "Users table check:",
       usersCheckError ? usersCheckError.message : "OK",
       "Data:",
-      usersData,
+      usersData
     );
 
     // If users table doesn't exist, create it
@@ -141,7 +141,7 @@ export async function initializeSupabaseSchema() {
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
           );
-        `,
+        `
       });
 
       if (createError) {
@@ -161,7 +161,7 @@ export async function initializeSupabaseSchema() {
       "Error captures table check:",
       errorsCheckError ? errorsCheckError.message : "OK",
       "Data:",
-      errorsData,
+      errorsData
     );
 
     // Check if subscriptions table exists
@@ -172,7 +172,7 @@ export async function initializeSupabaseSchema() {
       "Subscriptions table check:",
       subscriptionsCheckError ? subscriptionsCheckError.message : "OK",
       "Data:",
-      subscriptionsData,
+      subscriptionsData
     );
 
     // Check if api_keys table exists
@@ -185,7 +185,7 @@ export async function initializeSupabaseSchema() {
       "API keys table check:",
       apiKeysCheckError ? apiKeysCheckError.message : "OK",
       "Data:",
-      apiKeysData,
+      apiKeysData
     );
 
     // Log detailed error information if any table check failed
