@@ -1,0 +1,216 @@
+:root {
+  --bg-primary: #121212;
+  --bg-secondary: #1e1e1e;
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+  --accent-color: #5e67ff;
+  --accent-hover: #6e75ff;
+  --error-color: #ff5e5e;
+  --success-color: #4caf50;
+  --border-color: #333333;
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+body {
+  width: 400px;
+  min-height: 500px;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+  transition: all 0.3s ease;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+/* Loading and splash screen */
+.loading-text {
+  font-style: italic;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: auto;
+}
+
+/* Forms and Inputs */
+.form-group {
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(94, 103, 255, 0.2);
+}
+
+/* Buttons */
+button {
+  cursor: pointer;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--accent-color);
+  color: white;
+  font-weight: 500;
+  transition: background-color 0.3s, transform 0.1s;
+}
+
+button:hover {
+  background-color: var(--accent-hover);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Alerts */
+.alert {
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.alert-error {
+  background-color: rgba(255, 94, 94, 0.1);
+  border-left: 3px solid var(--error-color);
+  color: var(--error-color);
+}
+
+.alert-success {
+  background-color: rgba(76, 175, 80, 0.1);
+  border-left: 3px solid var(--success-color);
+  color: var(--success-color);
+}
+
+/* Application UI */
+h1 {
+  font-size: 20px;
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+h2 {
+  font-size: 16px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+p {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.user-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.user-name {
+  font-weight: 500;
+}
+
+.signout-button {
+  background-color: transparent;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+}
+
+.free-trial-banner {
+  background-color: var(--bg-secondary);
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.upgrade-button {
+  background-color: var(--success-color);
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.button-group button {
+  flex: 1;
+}
+
+.error-button {
+  background-color: var(--error-color);
+}
+
+.code-button {
+  background-color: #3498db;
+}
+
+.section {
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.code-block {
+  background-color: #2a2a2a;
+  border-radius: 4px;
+  padding: 10px;
+  overflow-x: auto;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Instruction steps */
+.instruction-step {
+  display: flex;
+  margin-bottom: 16px;
+  border-left: 2px solid var(--accent-color);
+  padding-left: 10px;
+}
+
+.center-button {
+  display: block;
+  margin: 20px auto 0;
+} 

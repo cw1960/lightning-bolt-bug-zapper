@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lightning Bolt Bug Zapper</title>
+    <link rel="stylesheet" href="popup.css">
+    <style>
+      /* Fallback styles in case CSS file doesn't load */
+      body {
+        width: 400px;
+        min-height: 500px;
+        margin: 0;
+        background-color: #121212;
+        color: #ffffff;
+        font-family: sans-serif;
+      }
+      #root {
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .loading-text {
+          font-style: italic;
+          color: #b0b0b0;
+          text-align: center;
+      }
+    </style>
+</head>
+<body>
+    <div id="root">
+      <div class="loading-text">Loading Extension...</div>
+    </div>
+    <!-- Direct path to bundled JavaScript -->
+    <script src="popup-react-entry.js"></script>
+</body>
+</html>

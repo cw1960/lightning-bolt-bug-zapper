@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lightning Bolt Bug Zapper</title>
+    <!-- Link to your CSS file(s) here -->
+    <!-- <link rel="stylesheet" href="styles/popup.css"> -->
+    <style>
+      /* Basic styles to prevent blank page before React loads */
+      body {
+        width: 400px; /* Adjust as needed */
+        min-height: 300px; /* Adjust as needed */
+        margin: 0;
+        font-family: sans-serif;
+      }
+      #root {
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .loading-text {
+          font-style: italic;
+          color: #555;
+      }
+    </style>
+</head>
+<body>
+    <div id="root">
+      <div class="loading-text">Loading Extension...</div>
+    </div>
+    <!-- This script tag should point to the output of your React build process -->
+    <script type="module" src="/dist/popup-react-entry.js"></script> 
+</body>
+</html>

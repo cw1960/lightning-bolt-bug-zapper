@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Lightning Bolt Bug Zapper Popup</title>
+  <link rel="stylesheet" href="popup-react.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #333;
+    }
+    
+    .popup-container {
+      width: 400px;
+      height: 450px;
+      border: 1px solid #555;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="popup-container">
+    <div id="app"></div>
+  </div>
+  <script type="module" src="./popup-react.jsx"></script>
+</body>
+</html> 
